@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>贪吃蛇 — 启动与登录流程深度分析</title>
+<style>
+:root {
+  --bg:      #080b14;
+  --panel:   #0f1320;
+  --card:    #141928;
+  --border:  #1e2438;
+  --c-html:  #e0824a;
+  --c-app:   #4f9cf9;
+  --c-game:  #4ade80;
+  --c-auth:  #fbbf24;
+  --c-data:  #c084fc;
+  --c-browser: #64748b;
+  --text:    #dde3f0;
+  --dim:     #7a88a8;
+  --arrow:   #2a3550;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ===== PAGE HEADER ===== */
+.page-header { margin-bottom: 2.5rem; }
+.page-header h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+.page-header p { color: var(--dim); font-size: 0.9rem; }
+
+/* ===== LEGEND ===== */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 0.6rem;
+  margin-bottom: 3rem;
+}
+.leg {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+.leg.html   { border-color: var(--c-html);  color: var(--c-html); }
+.leg.app    { border-color: var(--c-app);   color: var(--c-app); }
+.leg.game   { border-color: var(--c-game);  color: var(--c-game); }
+.leg.auth   { border-color: var(--c-auth);  color: var(--c-auth); }
+.leg.data   { border-color: var(--c-data);  color: var(--c-data); }
+.leg.browser{ border-color: var(--c-browser); color: var(--c-browser); }
+.leg-dot.html    { background: var(--c-html); }
+.leg-dot.app     { background: var(--c-app); }
+.leg-dot.game    { background: var(--c-game); }
+.leg-dot.auth    { background: var(--c-auth); }
+.leg-dot.data    { background: var(--c-data); }
+.leg-dot.browser { background: var(--c-browser); }
+
+/* ===== SCENARIO CONTAINER ===== */
+.scenario { margin-bottom: 4rem; }
+.scenario-title {
+  font-size: 1.05rem; font-weight: 700;
+  margin-bottom: 1.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--panel);
+  border-left: 3px solid;
+  border-radius: 0 6px 6px 0;
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.scenario-title.s1 { border-color: var(--c-browser); }
+.scenario-title.s2 { border-color: var(--c-auth); }
+.scenario-title.s3 { border-color: var(--c-game); }
+.scenario-title.s4 { border-color: var(--c-data); }
+.snum {
+  font-size: 0.7rem; font-weight: 700;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.s1 .snum { background: var(--c-browser); color: #fff; }
+.s2 .snum { background: var(--c-auth);    color: #000; }
+.s3 .snum { background: var(--c-game);    color: #000; }
+.s4 .snum { background: var(--c-data);    color: #fff; }
+
+/* ===== FLOW CHAIN ===== */
+.flow { display: flex; flex-direction: column; gap: 0; }
+
+.step {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0;
+  position: relative;
+}
+
+.step-source {
+  padding: 0.7rem 0.9rem 0.7rem 0;
+  text-align: right;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: flex-start;
+  gap: 0.2rem;
+  padding-top: 1rem;
+}
+.file-pill {
+  font-size: 0.68rem; font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.file-pill.html    { background: #3a200e; color: var(--c-html); }
+.file-pill.app     { background: #0e1f3a; color: var(--c-app); }
+.file-pill.game    { background: #0a2a1a; color: var(--c-game); }
+.file-pill.auth    { background: #2e2000; color: var(--c-auth); }
+.file-pill.data    { background: #220a3a; color: var(--c-data); }
+.file-pill.browser { background: #1a2030; color: var(--c-browser); }
+
+.step-line {
+  display: flex; flex-direction: column;
+  padding-left: 1.4rem;
+  position: relative;
+}
+/* vertical connector line */
+.step-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+/* dot on line */
+.step-line::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 1.05rem;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  z-index: 1;
+}
+
+.step.html    .step-line::after { border-color: var(--c-html);  background: #3a200e; }
+.step.app     .step-line::after { border-color: var(--c-app);   background: #0e1f3a; }
+.step.game    .step-line::after { border-color: var(--c-game);  background: #0a2a1a; }
+.step.auth    .step-line::after { border-color: var(--c-auth);  background: #2e2000; }
+.step.data    .step-line::after { border-color: var(--c-data);  background: #220a3a; }
+.step.browser .step-line::after { border-color: var(--c-browser); background: #1a2030; }
+
+/* last step: cut the line */
+.step:last-child .step-line::before { height: 1.2rem; }
+
+.step-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.55rem 0 0.55rem 0;
+}
+
+/* arrow between cards */
+.step-card + .arrow-down {
+  margin-left: -0.5rem;
+}
+.arrow-row {
+  display: flex; justify-content: flex-start;
+  padding-left: 1.4rem;
+  padding-bottom: 0;
+  position: relative;
+}
+.arrow-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.arrow-down {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.72rem; color: var(--dim);
+  padding: 0.1rem 0;
+}
+.arrow-icon { font-size: 1rem; color: #334060; }
+
+/* card internals */
+.card-trigger {
+  font-size: 0.72rem; color: var(--dim);
+  margin-bottom: 0.3rem;
+}
+.card-action {
+  font-size: 0.88rem; font-weight: 600;
+  margin-bottom: 0.35rem;
+  display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+}
+.card-code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  background: #0a0c18;
+  padding: 0.4rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid #1e2438;
+  color: #c9d5f0;
+  margin-top: 0.3rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.card-note {
+  font-size: 0.75rem; color: var(--dim);
+  margin-top: 0.35rem;
+  line-height: 1.5;
+}
+.hl { color: var(--text); font-weight: 600; }
+.ln {
+  font-size: 0.65rem;
+  background: #1a1e30;
+  color: #556080;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.ret {
+  font-size: 0.72rem;
+  background: #1a2a1a;
+  color: #4ade80;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+.ret.err {
+  background: #2a1a1a;
+  color: #f87171;
+}
+
+/* branch indicator */
+.branch {
+  display: flex; gap: 0.7rem; flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.branch-item {
+  flex: 1; min-width: 160px;
+  background: #0c0f1c;
+  border: 1px dashed #2a3050;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.75rem;
+}
+.branch-item .b-label {
+  font-weight: 700; font-size: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+.branch-item.ok  .b-label { color: var(--c-game); }
+.branch-item.bad .b-label { color: #f87171; }
+
+/* section divider */
+hr.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0 0 3rem;
+}
+
+/* table style for script load order */
+.load-table {
+  width: 100%; border-collapse: collapse;
+  margin-top: 0.5rem; font-size: 0.82rem;
+}
+.load-table th {
+  text-align: left; padding: 0.4rem 0.7rem;
+  color: var(--dim); font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+.load-table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid #141826;
+}
+.load-table tr:last-child td { border-bottom: none; }
+.order-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 0.7rem; font-weight: 700;
+  background: #1e2438; color: var(--dim);
+}
+
+code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  background: #0f1220;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+/* ===== ENGINE LAYER DIAGRAM ===== */
+.engine-diagram {
+  display: grid;
+  grid-template-columns: 1fr 40px 1fr 40px 1fr;
+  align-items: center;
+  gap: 0;
+  margin: 1rem 0 0.5rem;
+}
+.engine-box {
+  background: #0c0f1c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  text-align: center;
+}
+.engine-box .eb-tag {
+  font-size: 0.65rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--dim); margin-bottom: 0.3rem;
+}
+.engine-box .eb-name {
+  font-size: 0.9rem; font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+.engine-box .eb-desc {
+  font-size: 0.72rem; color: var(--dim); line-height: 1.4;
+}
+.engine-box.cpp  { border-color: #e0824a44; }
+.engine-box.cpp .eb-name  { color: var(--c-html); }
+.engine-box.v8   { border-color: #4f9cf944; }
+.engine-box.v8 .eb-name   { color: var(--c-app); }
+.engine-box.js   { border-color: #4ade8044; }
+.engine-box.js .eb-name   { color: var(--c-game); }
+.engine-arrow {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0.2rem; font-size: 0.68rem; color: #3a4a6a;
+  text-align: center; line-height: 1.3;
+}
+.engine-arrow .ea-icon { font-size: 1.1rem; }
+
+/* ===== INHERITANCE CHAIN ===== */
+.inherit-chain {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0; margin: 0.6rem 0 0.3rem;
+}
+.inh-node {
+  background: #0c0f1c;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem; font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  color: var(--dim);
+}
+.inh-node.active { border-color: #4f9cf966; color: var(--c-app); background: #0a1525; }
+.inh-node.highlight { border-color: #4ade8066; color: var(--c-game); background: #0a1a10; }
+.inh-arrow {
+  font-size: 0.8rem; color: #2a3550;
+  padding: 0 0.3rem;
+}
+
+/* ===== GLOBAL VAR BLOCK ===== */
+.global-vars {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;
+}
+.gvar {
+  background: #0c0f1c;
+  border: 1px solid #2a3050;
+  border-radius: 5px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-family: 'Fira Code', monospace;
+}
+.gvar .gv-name { color: var(--c-app); font-weight: 700; }
+.gvar .gv-src  { color: var(--dim); font-size: 0.68rem; }
+
+/* ===== SCENARIO 0 ===== */
+.scenario-title.s0 { border-color: #e0824a; }
+.s0 .snum { background: #e0824a; color: #fff; }
+
+footer {
+  text-align: center; color: var(--dim);
+  font-size: 0.78rem; margin-top: 3rem;
+  padding-top: 1.5rem; border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>🐍 贪吃蛇 — 浏览器引擎原理 + HTML 入口 → 登录 & 游戏启动 全流程分析</h1>
+  <p>从浏览器引擎（C++ / V8）如何创建 <code>document</code>、触发 <code>DOMContentLoaded</code>，到每一次跨文件函数调用——完整链路，标注行号。</p>
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="leg browser"><div class="leg-dot browser"></div>浏览器 / 事件</div>
+  <div class="leg html"><div class="leg-dot html"></div>index.html</div>
+  <div class="leg app"><div class="leg-dot app"></div>js/app.js</div>
+  <div class="leg game"><div class="leg-dot game"></div>js/game.js · SnakeGame</div>
+  <div class="leg auth"><div class="leg-dot auth"></div>js/auth.js · Auth</div>
+  <div class="leg data"><div class="leg-dot data"></div>js/data.js · DataStore</div>
+</div>
+
+<!-- ====================================================
+     SCENARIO 0: 前置背景 — 浏览器引擎、document 对象、DOMContentLoaded 原理
+==================================================== -->
+<div class="scenario">
+  <div class="scenario-title s0">
+    <span class="snum">0</span>
+    前置背景 — <code>document</code> 从哪来？<code>addEventListener</code> 是谁的方法？<code>DOMContentLoaded</code> 由谁触发？
+  </div>
+
+  <div class="flow">
+
+    <!-- 浏览器引擎三层架构 -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">浏览器引擎</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">JS 代码中从未写过 <code>new Document()</code>，但 <code>document</code> 始终存在——它来自浏览器引擎，不来自任何 JS 文件</div>
+          <div class="card-action">浏览器三层架构：C++ 引擎 → V8 绑定 → JS 全局环境</div>
+          <div class="engine-diagram">
+            <div class="engine-box cpp">
+              <div class="eb-tag">渲染引擎 C++</div>
+              <div class="eb-name">Blink / WebKit</div>
+              <div class="eb-desc">用 C++ 实现 DOM、事件系统、布局引擎。<code>Document</code>、<code>EventTarget</code>、<code>localStorage</code> 都是在这里用 C++ 创建的真实对象。</div>
+            </div>
+            <div class="engine-arrow">
+              <div class="ea-icon">→</div>
+              <div>V8 绑定层<br>IDL 接口</div>
+            </div>
+            <div class="engine-box v8">
+              <div class="eb-tag">JS 引擎</div>
+              <div class="eb-name">V8</div>
+              <div class="eb-desc">将 C++ 对象包裹为 JS 可访问的对象，注入到全局作用域。JS 调用 <code>.addEventListener()</code> 时，最终执行的是 Blink 里的 C++ 代码。</div>
+            </div>
+            <div class="engine-arrow">
+              <div class="ea-icon">→</div>
+              <div>全局变量<br>注入</div>
+            </div>
+            <div class="engine-box js">
+              <div class="eb-tag">JS 运行环境</div>
+              <div class="eb-name">你的 JS 代码</div>
+              <div class="eb-desc">直接使用 <code>document</code>、<code>window</code>、<code>localStorage</code> 等，不需要 import 或 new，因为引擎启动时已经注入完毕。</div>
+            </div>
+          </div>
+          <div class="card-note">类比：你打开终端就能用 <code>cd</code>、<code>ls</code>，不需要先安装它们——shell 启动时内核已经提供好了。浏览器引擎对 JS 做的是同样的事。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- document 对象来源 -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">document 对象</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger"><code>document</code> 对象在浏览器开始解析 HTML <strong>之前</strong>就已由 Blink 用 C++ 创建，并通过 V8 注入为 JS 全局变量</div>
+          <div class="card-action">浏览器预置的全局对象（JS 代码不需要、也不能 <code>new</code> 它们）</div>
+          <div class="global-vars">
+            <div class="gvar"><span class="gv-name">window</span> <span class="gv-src">— 全局作用域本身</span></div>
+            <div class="gvar"><span class="gv-name">document</span> <span class="gv-src">— 当前页面 DOM 树的根</span></div>
+            <div class="gvar"><span class="gv-name">localStorage</span> <span class="gv-src">— 持久存储 API</span></div>
+            <div class="gvar"><span class="gv-name">console</span> <span class="gv-src">— 控制台输出</span></div>
+            <div class="gvar"><span class="gv-name">Math</span> <span class="gv-src">— 数学工具（ECMAScript 内置）</span></div>
+            <div class="gvar"><span class="gv-name">Date</span> <span class="gv-src">— 时间对象（ECMAScript 内置）</span></div>
+          </div>
+          <div class="card-note" style="margin-top:0.6rem">前两行（window / document / localStorage / console）是 <strong>Web API</strong>，由浏览器引擎提供；后两行（Math / Date）是 <strong>ECMAScript 规范</strong>内置，由 V8 自身提供。两者的来源不同，但对 JS 代码来说使用方式完全一样——都是"拿来即用"的全局变量。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- addEventListener 来源 -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">addEventListener</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger"><code>document.addEventListener</code> 不是 <code>document</code> 自己定义的，而是从 <code>EventTarget</code> 接口继承来的</div>
+          <div class="card-action"><code>addEventListener</code> 的来源：W3C/WHATWG 定义的 <code>EventTarget</code> 接口，Blink 用 C++ 实现</div>
+          <div class="inherit-chain">
+            <div class="inh-node highlight">EventTarget</div>
+            <div class="inh-arrow">←继承</div>
+            <div class="inh-node">Node</div>
+            <div class="inh-arrow">←继承</div>
+            <div class="inh-node">Document</div>
+            <div class="inh-arrow">←继承</div>
+            <div class="inh-node">HTMLDocument</div>
+            <div class="inh-arrow">= 即是</div>
+            <div class="inh-node active">document</div>
+          </div>
+          <div class="card-code">// EventTarget 接口（Web API 规范定义，Blink C++ 实现）
+EventTarget.prototype.addEventListener(type, listener, options)
+EventTarget.prototype.removeEventListener(type, listener)
+EventTarget.prototype.dispatchEvent(event)
+
+// 因此以下写法全部合法：
+document.addEventListener(...)      // Document 继承自 EventTarget
+document.body.addEventListener(...) // HTMLElement → Element → Node → EventTarget
+window.addEventListener(...)        // Window 也实现了 EventTarget</div>
+          <div class="card-note">JS 里的 <code>document.addEventListener('DOMContentLoaded', cb)</code> 本质是：通过 V8 绑定层，调用 Blink C++ 里 <code>EventTarget::addEventListener()</code> 方法，把回调函数 <code>cb</code> 的引用注册到 <code>document</code> 节点的事件监听器列表中。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMContentLoaded 触发机制 -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">DOMContentLoaded<br>触发机制</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger"><code>DOMContentLoaded</code> 不是 JS 代码触发的，JS 代码只是在「等通知」；真正的触发者是 Blink 渲染引擎的 C++ 层</div>
+          <div class="card-action">谁触发：浏览器引擎（Blink C++），不是任何 JS 代码</div>
+          <div class="card-code">// 这是浏览器 C++ 内部的伪代码（简化）：
+void HTMLParser::finishedParsing() {
+    // HTML 解析完毕，同步脚本全部执行完
+    document->dispatchEvent(Event::create("DOMContentLoaded"))
+    // ↑ 这一行触发事件，JS 里注册的所有回调被依次调用
+}
+
+// 你在 app.js 里写的：
+document.addEventListener('DOMContentLoaded', () => { ... })
+// 只是往上面那个监听器列表里"插了一张回调卡"
+// 等 C++ 调用 dispatchEvent 时，V8 再把你的回调拿出来执行</div>
+          <div class="card-note">对比两个相似事件的触发时机：</div>
+          <table class="load-table" style="margin-top:0.4rem">
+            <thead><tr><th>事件</th><th>触发时机</th><th>等待内容</th><th>本项目是否使用</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>DOMContentLoaded</code></td>
+                <td>HTML 解析完 + 同步脚本执行完</td>
+                <td>不等图片、CSS、异步脚本</td>
+                <td style="color:var(--c-game)">✓ app.js L5 使用</td>
+              </tr>
+              <tr>
+                <td><code>window.load</code></td>
+                <td>页面所有资源全部加载完毕</td>
+                <td>等图片、iframe、样式表等</td>
+                <td style="color:var(--dim)">✗ 本项目未使用</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="card-note" style="margin-top:0.5rem">本项目选 <code>DOMContentLoaded</code> 是正确的——它只需要 DOM 节点可以 <code>getElementById</code>，不依赖图片，启动更快。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 完整链路小结 -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">完整链路</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-action">从「浏览器内核」到「app.js 第一行代码执行」的完整链路</div>
+          <div class="card-code">① Blink C++：分配 Document 对象，通过 V8 绑定注入全局变量 document
+② app.js 加载执行：document.addEventListener('DOMContentLoaded', cb)
+   └─ 实际调用 Blink C++ 的 EventTarget::addEventListener()
+   └─ 把 cb（回调函数引用）存入 document 的监听器列表
+③ Blink C++：完成 HTML 解析 + 所有同步脚本
+   └─ 调用 document->dispatchEvent("DOMContentLoaded")
+   └─ V8 拿出监听器列表中的 cb，执行它
+④ cb 开始执行 = app.js L5 的箭头函数体开始运行</div>
+          <div class="card-note" style="color:var(--c-game)">JS 代码始终处于「被动」位置——注册回调，等待引擎通知。真正驱动一切的是浏览器 C++ 引擎。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ====================================================
+     SCENARIO 1: 页面加载 & 脚本初始化
+==================================================== -->
+<div class="scenario">
+  <div class="scenario-title s1">
+    <span class="snum">1</span>
+    页面加载阶段 — 浏览器解析 HTML，按顺序执行脚本
+  </div>
+
+  <div class="flow">
+
+    <!-- step: browser opens -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">浏览器</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">用户打开页面，浏览器开始解析 HTML</div>
+          <div class="card-action">解析 <code>index.html</code></div>
+          <div class="card-note">浏览器从上到下读取 HTML，遇到 <code>&lt;script src="..."&gt;</code> 时暂停解析、加载并执行脚本</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- load order table (embedded in a special step) -->
+    <div class="step html">
+      <div class="step-source"><span class="file-pill html">index.html</span><span class="ln">L137–140</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">HTML 底部四行 <code>&lt;script&gt;</code>，顺序固定——后加载的脚本可使用前面定义的全局对象</div>
+          <div class="card-action">脚本加载顺序（依赖在前）</div>
+          <table class="load-table">
+            <thead><tr><th>顺序</th><th>文件</th><th>暴露的全局对象</th><th>依赖</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="order-badge">1</span></td>
+                <td><code>js/data.js</code></td>
+                <td><code style="color:var(--c-data)">DataStore</code></td>
+                <td>无（仅用 <code>localStorage</code>）</td>
+              </tr>
+              <tr>
+                <td><span class="order-badge">2</span></td>
+                <td><code>js/auth.js</code></td>
+                <td><code style="color:var(--c-auth)">Auth</code></td>
+                <td><code style="color:var(--c-data)">DataStore</code></td>
+              </tr>
+              <tr>
+                <td><span class="order-badge">3</span></td>
+                <td><code>js/game.js</code></td>
+                <td><code style="color:var(--c-game)">SnakeGame</code></td>
+                <td><code style="color:var(--c-auth)">Auth</code>，<code style="color:var(--c-data)">DataStore</code></td>
+              </tr>
+              <tr>
+                <td><span class="order-badge">4</span></td>
+                <td><code>js/app.js</code></td>
+                <td>无（立即执行，注册事件）</td>
+                <td>以上三者全部</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="card-note" style="margin-top:0.6rem">每个脚本用 IIFE（立即执行函数表达式）包裹，只暴露一个全局常量（<code>DataStore</code> / <code>Auth</code> / <code>SnakeGame</code>），内部私有函数外部不可访问。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMContentLoaded -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">浏览器引擎<br>C++ 层</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">四个脚本全部同步执行完毕，HTML 解析结束，Blink C++ 层主动派发事件</div>
+          <div class="card-action">Blink 调用 <code>document→dispatchEvent("DOMContentLoaded")</code>（C++ 内部）</div>
+          <div class="card-code">// 浏览器引擎 C++ 伪代码（你看不到这段，但它真实存在）：
+void HTMLParser::finishedParsing() {
+    document->dispatchEvent(Event::create("DOMContentLoaded"))
+    // ↑ 触发事件，V8 取出 app.js 注册的回调并执行
+}</div>
+          <div class="card-note"><strong>触发者是浏览器引擎（Blink C++），不是任何 JS 代码。</strong>JS 代码只是提前在 app.js 里「插了一张回调卡」，等 C++ 通知到来时才被执行。详细原理见场景 0。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- app.js entry -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L5</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">V8 引擎从 <code>document</code> 的监听器列表中取出回调，执行它——这是 app.js 里第一行真正运行的逻辑</div>
+          <div class="card-action"><code>document.addEventListener('DOMContentLoaded', callback)</code> 的回调开始执行</div>
+          <div class="card-code">// app.js L5：这行在脚本加载时立即执行（注册回调）
+document.addEventListener('DOMContentLoaded', () => {
+    // ↓ 以下代码在 DOMContentLoaded 触发后才执行
+
+    // 第一步：读取 DOM 节点引用（L7–26）
+    const authForm = document.getElementById('auth-form')
+    const btnStart = document.getElementById('btn-start')
+    // ... 共约 12 个节点
+
+    // 第二步：注册所有用户交互事件监听器（L62–186）
+    authForm.addEventListener('submit', ...)
+    btnStart.addEventListener('click', ...)
+    btnPause.addEventListener('click', ...)
+
+    // 第三步：检查登录状态，决定首屏（L266–270）
+    if (Auth.isLoggedIn()) _enterGame()
+    else showView('auth')
+})</div>
+          <div class="card-note">为什么要等 <code>DOMContentLoaded</code> 再读取 DOM 节点？因为 app.js 是第四个加载的脚本，此时浏览器 HTML 解析尚未完成，直接 <code>getElementById</code> 会返回 <code>null</code>。等事件触发后 DOM 树已完整，节点必然存在。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOM refs -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L7–26</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">入口函数的第一步：用 <code>getElementById</code> 和 <code>querySelectorAll</code> 取得 HTML 中的节点引用</div>
+          <div class="card-action">绑定 DOM 节点到局部变量</div>
+          <div class="card-code">// 来自 index.html 的关键节点
+const authOverlay = getElementById('auth-overlay')   // 登录浮层 L29
+const authForm    = getElementById('auth-form')       // 登录表单 L34
+const btnStart    = getElementById('btn-start')       // 开始按钮 L75
+const btnPause    = getElementById('btn-pause')       // 暂停按钮 L76
+const navUsername = getElementById('nav-username')    // 导航用户名 L23
+// ... 共约 12 个节点引用</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- isLoggedIn check -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L266</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">所有事件绑定完成后，执行「是否已登录」判断，决定首屏视图</div>
+          <div class="card-action">调用 <span class="hl">Auth.isLoggedIn()</span></div>
+          <div class="card-code">if (Auth.isLoggedIn()) {   // → auth.js L78
+    _enterGame();
+} else {
+    showView('auth');
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- auth.isLoggedIn -->
+    <div class="step auth">
+      <div class="step-source"><span class="file-pill auth">js/auth.js</span><span class="ln">L78</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 app.js L266 调用</div>
+          <div class="card-action"><code>Auth.isLoggedIn()</code> 内部实现</div>
+          <div class="card-code">function isLoggedIn() {
+    return !!DataStore.getCurrentUser();  // → data.js L57
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DataStore.getCurrentUser -->
+    <div class="step data">
+      <div class="step-source"><span class="file-pill data">js/data.js</span><span class="ln">L57</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 Auth.isLoggedIn() 调用</div>
+          <div class="card-action"><code>DataStore.getCurrentUser()</code> 读取 localStorage</div>
+          <div class="card-code">function getCurrentUser() {
+    return _get(KEYS.CURRENT_USER);  // JSON.parse(localStorage.getItem('snake_current'))
+}</div>
+          <div class="card-note">返回值：若存在则为用户名字符串（truthy），否则为 <code>null</code>（falsy）。</div>
+          <div class="branch" style="margin-top:0.6rem">
+            <div class="branch-item ok">
+              <div class="b-label">✓ 已登录（有记录）</div>
+              返回用户名 → app.js 调用 <code>_enterGame()</code> 直接进入游戏视图
+            </div>
+            <div class="branch-item bad">
+              <div class="b-label">✗ 未登录（null）</div>
+              返回 null → app.js 调用 <code>showView('auth')</code> 显示登录浮层 + 演示动画
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- showView auth -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L37–44</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">未登录分支：<code>showView('auth')</code> 被调用</div>
+          <div class="card-action">显示登录浮层，初始化并启动演示蛇</div>
+          <div class="card-code">// showView('auth') 内部
+viewGame.classList.add('active')           // 显示游戏视图（做背景）
+authOverlay.classList.remove('hidden')     // 显示登录浮层（覆盖其上）
+navbar.classList.remove('visible')         // 隐藏导航栏
+SnakeGame.init('game-canvas', {})          // → game.js L46（初始化 canvas）
+SnakeGame.startDemo('game-canvas')         // → game.js L104（启动 AI 演示）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SnakeGame.init demo -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L46–54</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 app.js L43 调用</div>
+          <div class="card-action"><code>SnakeGame.init('game-canvas', {})</code> — 初始化 Canvas 画布</div>
+          <div class="card-code">function init(canvasId, callbacks = {}) {
+    canvas = document.getElementById(canvasId)  // 拿到 &lt;canvas id="game-canvas"&gt;
+    ctx    = canvas.getContext('2d')            // 获取 2D 绘制上下文
+    canvas.width  = 500  // CELL_SIZE(20) × GRID_COLS(25)
+    canvas.height = 500
+    onScoreUpdate = callbacks.onScoreUpdate || null
+    onGameOver    = callbacks.onGameOver    || null
+    _bindKeys()   // 注册键盘事件（↑↓←→ WASD 空格）
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SnakeGame.startDemo -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L104–112</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 app.js L44 调用</div>
+          <div class="card-action"><code>SnakeGame.startDemo('game-canvas')</code> — 启动 AI 自动演示蛇</div>
+          <div class="card-code">function startDemo(canvasId) {
+    demoCanvas = document.getElementById(canvasId)
+    demoCtx    = demoCanvas.getContext('2d')
+    demoMode   = true
+    _demoReset()  // 初始化蛇位置，启动 setInterval 循环
+}
+
+// _demoReset 内部（L153–167）：
+interval  = setInterval(() => {
+    _demoAI()   // AI 计算下一步方向（避墙、朝食物）
+    _tick()     // 推进游戏一帧
+    _render()   // 绘制到 canvas
+}, 100)  // 100ms/帧
+demoTimer = setTimeout(() => _demoReset(), 5000)  // 5秒重置一轮</div>
+          <div class="card-note">此阶段蛇在登录表单背后自动运行，仅作视觉演示，不保存任何记录。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ====================================================
+     SCENARIO 2: 用户登录流程
+==================================================== -->
+<div class="scenario">
+  <div class="scenario-title s2">
+    <span class="snum">2</span>
+    登录流程 — 用户填写表单并提交，验证通过后进入游戏视图
+  </div>
+
+  <div class="flow">
+
+    <!-- user fills form -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">用户操作</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-action">用户在登录表单中填入用户名和密码，点击「登 录」</div>
+          <div class="card-note">触发 HTML 元素：<code>&lt;form id="auth-form"&gt;</code>（index.html L34）的 <code>submit</code> 事件</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- app.js submit handler -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L107</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">表单 submit 事件触发，之前在 app.js L107 注册的监听器被调用</div>
+          <div class="card-action"><code>authForm.addEventListener('submit', handler)</code></div>
+          <div class="card-code">authForm.addEventListener('submit', (e) => {
+    e.preventDefault()                    // 阻止默认提交（防止页面刷新）
+    const username = inputUser.value      // 读取 &lt;input id="input-username"&gt; 的值
+    const password = inputPass.value      // 读取 &lt;input id="input-password"&gt; 的值
+
+    let result
+    if (isLoginMode) {                    // isLoginMode 默认为 true（登录模式）
+        result = Auth.login(username, password)    // → auth.js L47
+    } else {
+        result = Auth.register(username, password) // → auth.js L24
+        if (result.success) result = Auth.login(username, password)
+    }
+
+    authMsg.textContent = result.message   // 显示「登录成功 / 密码错误」等
+    if (result.success) _enterGame()       // → app.js L132
+})</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth.login -->
+    <div class="step auth">
+      <div class="step-source"><span class="file-pill auth">js/auth.js</span><span class="ln">L47</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 app.js L114 调用</div>
+          <div class="card-action"><code>Auth.login(username, password)</code> — 验证身份</div>
+          <div class="card-code">function login(username, password) {
+    username = username.trim()
+    if (!username || !password)
+        return { success: false, message: '请输入用户名和密码' }
+
+    const storedHash = DataStore.getUserPasswordHash(username)  // → data.js L45
+    if (!storedHash)
+        return { success: false, message: '用户不存在' }
+
+    if (storedHash !== _hashPassword(password))                 // 本地哈希比对
+        return { success: false, message: '密码错误' }
+
+    // 验证通过：
+    DataStore.setCurrentUser(username)   // → data.js L52（写入会话）
+    DataStore.addLoginRecord(username)   // → data.js L68（写入登录历史）
+    return { success: true, message: '登录成功' }
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DataStore.getUserPasswordHash -->
+    <div class="step data">
+      <div class="step-source"><span class="file-pill data">js/data.js</span><span class="ln">L45</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 Auth.login() 调用，校验密码哈希</div>
+          <div class="card-action"><code>DataStore.getUserPasswordHash(username)</code></div>
+          <div class="card-code">function getUserPasswordHash(username) {
+    const user = getUsers()[username]           // localStorage key: 'snake_users'
+    return user ? user.passwordHash : null      // 返回哈希字符串 or null
+}</div>
+          <div class="branch" style="margin-top:0.6rem">
+            <div class="branch-item bad">
+              <div class="b-label">✗ 用户不存在</div>
+              返回 null → Auth.login 返回 { success: false, message: '用户不存在' }
+            </div>
+            <div class="branch-item ok">
+              <div class="b-label">✓ 用户存在</div>
+              返回哈希 → 继续比对密码
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DataStore.setCurrentUser -->
+    <div class="step data">
+      <div class="step-source"><span class="file-pill data">js/data.js</span><span class="ln">L52</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">密码验证通过后，Auth.login() 调用</div>
+          <div class="card-action"><code>DataStore.setCurrentUser(username)</code> + <code>addLoginRecord(username)</code></div>
+          <div class="card-code">// setCurrentUser（L52）
+localStorage.setItem('snake_current', JSON.stringify(username))
+
+// addLoginRecord（L68）
+history[username].push({
+    time:      Date.now(),
+    formatted: new Date().toLocaleString('zh-CN')
+})
+localStorage.setItem('snake_logins', JSON.stringify(history))</div>
+          <div class="card-note">至此，Auth.login() 返回 <span class="ret">{ success: true, message: '登录成功' }</span> 给 app.js</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- _enterGame -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L132</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">login 成功 → app.js 调用 <code>_enterGame()</code></div>
+          <div class="card-action"><code>_enterGame()</code> — 切换到游戏视图</div>
+          <div class="card-code">function _enterGame() {
+    const user = Auth.getCurrentUser()           // → auth.js L73 → data.js L57
+    navUsername.textContent = `👤 ${user}`       // 导航栏显示用户名
+
+    SnakeGame.stopDemo()                         // → game.js L115（停止 AI 演示）
+    showView('game')                             // → app.js L45（切换视图）
+
+    SnakeGame.init('game-canvas', {              // → game.js L46（重新初始化）
+        onScoreUpdate: (s) => {
+            scoreValue.textContent = s           // 每次吃食物时更新分数 DOM
+        },
+        onGameOver: (s, d) => {
+            btnStart.textContent = '🔄 再来一局' // 游戏结束时更新按钮文字
+        }
+    })
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SnakeGame.stopDemo -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L115</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 _enterGame() 调用，终止背景演示动画</div>
+          <div class="card-action"><code>SnakeGame.stopDemo()</code></div>
+          <div class="card-code">function stopDemo() {
+    demoMode = false
+    clearInterval(interval)   // 停止 setInterval 帧循环
+    clearTimeout(demoTimer)   // 取消 5 秒重置计时器
+    demoTimer = null
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- showView game -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L45–51</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 _enterGame() 调用</div>
+          <div class="card-action"><code>showView('game')</code> — 隐藏浮层，显示游戏视图</div>
+          <div class="card-code">// showView('game') 内部
+authOverlay.classList.add('hidden')           // 登录浮层消失
+viewGame.classList.add('active')              // 游戏视图出现
+navbar.classList.add('visible')               // 导航栏出现
+document.querySelector('[data-view="game"]')
+    .classList.add('active')                  // 「🎮 游戏」导航按钮高亮</div>
+          <div class="card-note" style="color:var(--c-game)">✓ 登录完成，用户现在看到游戏画布和「🎮 开始游戏」按钮，画布为空（等待用户点击开始）。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ====================================================
+     SCENARIO 3: 开始游戏流程
+==================================================== -->
+<div class="scenario">
+  <div class="scenario-title s3">
+    <span class="snum">3</span>
+    开始游戏流程 — 用户点击「🎮 开始游戏」，游戏循环启动
+  </div>
+
+  <div class="flow">
+
+    <!-- user clicks start -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">用户操作</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-action">点击 <code>&lt;button id="btn-start"&gt;🎮 开始游戏&lt;/button&gt;</code></div>
+          <div class="card-note">该按钮在 index.html L75，click 事件监听器在 app.js L154 注册</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- app.js btnStart listener -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L154</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">btn-start click 事件触发</div>
+          <div class="card-action"><code>btnStart.addEventListener('click', handler)</code></div>
+          <div class="card-code">btnStart.addEventListener('click', () => {
+    SnakeGame.start()                         // → game.js L61
+    btnStart.textContent = '🔄 重新开始'
+    btnPause.textContent = '⏸ 暂停'
+})</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SnakeGame.start -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L61</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 app.js L155 调用</div>
+          <div class="card-action"><code>SnakeGame.start()</code> — 重置状态，启动游戏循环</div>
+          <div class="card-code">function start() {
+    stopDemo()          // 若有演示先停止
+
+    // 重置蛇（从格子中心出发，向右 3 节）
+    snake = [{ x:12,y:12 }, { x:11,y:12 }, { x:10,y:12 }]
+    direction     = DIR.RIGHT
+    nextDirection = DIR.RIGHT
+    score         = 0
+    gameOver      = false
+    paused        = false
+    running       = true
+    particles     = []
+    startTime     = Date.now()
+
+    _spawnFood()                          // 随机生成食物位置和 emoji 图标
+
+    if (onScoreUpdate) onScoreUpdate(0)   // 通知 app.js 将分数显示重置为 0
+
+    clearInterval(interval)
+    interval = setInterval(_tick,         // 启动帧循环
+                           SPEED[difficulty])  // easy:150ms normal:100ms hard:60ms
+    _render()    // 立即画第一帧
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- _spawnFood -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L274</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 start() 调用</div>
+          <div class="card-action"><code>_spawnFood()</code> — 随机生成食物坐标与 emoji</div>
+          <div class="card-code">function _spawnFood() {
+    const occupied = new Set(snake.map(s => `${s.x},${s.y}`))
+    let pos
+    do {
+        pos = {
+            x: Math.floor(Math.random() * 25),  // GRID_COLS = 25
+            y: Math.floor(Math.random() * 25),  // GRID_ROWS = 25
+        }
+    } while (occupied.has(`${pos.x},${pos.y}`))  // 确保不与蛇身重叠
+    food = pos
+    currentFoodIcon = FOOD_ICONS[Math.floor(Math.random() * FOOD_ICONS.length)]
+    // FOOD_ICONS = ['🍎','🐭','🐰','🐛','🍇','🍊','🐸']
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- setInterval _tick -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L213</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger"><code>setInterval(_tick, SPEED[difficulty])</code> 每帧触发</div>
+          <div class="card-action"><code>_tick()</code> — 游戏主循环（每帧执行一次）</div>
+          <div class="card-code">function _tick() {
+    if (paused || gameOver) return
+
+    direction = nextDirection           // 应用方向输入
+
+    // 计算新头部坐标
+    const head = { ...snake[0] }
+    head.x += direction.x
+    head.y += direction.y
+
+    // 碰墙检测
+    if (head.x < 0 || head.x >= 25 || head.y < 0 || head.y >= 25)
+        return _endGame()               // → game.js L250
+
+    // 咬到自己检测
+    for (const seg of snake) {
+        if (seg.x === head.x && seg.y === head.y)
+            return _endGame()
+    }
+
+    snake.unshift(head)    // 蛇头前进
+
+    // 是否吃到食物
+    if (head.x === food.x && head.y === food.y) {
+        score += 10
+        _spawnParticles(food.x, food.y)  // 粒子特效
+        _spawnFood()                     // 生成下一个食物
+        if (onScoreUpdate) onScoreUpdate(score)  // ← 回调 app.js，更新分数 DOM
+    } else {
+        snake.pop()   // 没吃到：去掉尾部（蛇保持长度）
+    }
+
+    _render()   // 绘制当前帧
+}</div>
+          <div class="card-note">onScoreUpdate 是 <code>_enterGame()</code> 时传入的回调：<code>(s) => { scoreValue.textContent = s }</code>，直接更新 index.html 中 <code>&lt;div id="score-value"&gt;</code> 的文字。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- keyboard control -->
+    <div class="step browser">
+      <div class="step-source"><span class="file-pill browser">用户输入</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">游戏运行中，用户按下方向键 / WASD / 空格</div>
+          <div class="card-action">keydown 事件 → <code>_bindKeys()</code> 中的监听器（game.js L476）</div>
+          <div class="card-code">document.addEventListener('keydown', (e) => {
+    // 修改 nextDirection（不立即生效，下一帧 _tick 时才应用）
+    case 'ArrowUp':  if (dir !== DOWN)  nextDir = UP;   break
+    case 'ArrowDown':if (dir !== UP)    nextDir = DOWN; break
+    // ...
+    case ' ':  // 空格键
+        if (gameOver) start()     // 游戏结束后按空格重新开始
+        else          pause()     // 游戏中按空格切换暂停
+})</div>
+          <div class="card-note">键盘绑定在 <code>init()</code> 调用时由 <code>_bindKeys()</code> 注册，整个页面生命周期内有效。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ====================================================
+     SCENARIO 4: 游戏结束流程
+==================================================== -->
+<div class="scenario">
+  <div class="scenario-title s4">
+    <span class="snum">4</span>
+    游戏结束流程 — 蛇撞墙/撞自己，保存记录，回调 app.js
+  </div>
+
+  <div class="flow">
+
+    <!-- collision -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L224</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">_tick() 检测到碰撞（碰墙或咬到自己）</div>
+          <div class="card-action">调用 <code>_endGame()</code></div>
+          <div class="card-code">// 碰撞检测（_tick 内部）
+if (head.x < 0 || head.x >= 25 || head.y < 0 || head.y >= 25)
+    return _endGame()     // 碰墙
+for (const seg of snake)
+    if (seg.x === head.x && seg.y === head.y)
+        return _endGame() // 咬到自己</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- _endGame -->
+    <div class="step game">
+      <div class="step-source"><span class="file-pill game">js/game.js</span><span class="ln">L250</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">碰撞后调用</div>
+          <div class="card-action"><code>_endGame()</code> — 结束循环，保存记录</div>
+          <div class="card-code">function _endGame() {
+    gameOver = true
+    running  = false
+    clearInterval(interval)    // 停止帧循环
+
+    const duration = Math.round((Date.now() - startTime) / 1000)
+    _renderGameOver()          // 在 canvas 上画「游戏结束」遮罩
+
+    const user = Auth.getCurrentUser()              // → auth.js L73 → data.js L57
+    if (user) {
+        DataStore.saveGameRecord(user, score, duration)  // → data.js L86
+    }
+
+    if (onGameOver) onGameOver(score, duration)     // 回调 app.js 的 onGameOver
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth.getCurrentUser -->
+    <div class="step auth">
+      <div class="step-source"><span class="file-pill auth">js/auth.js</span><span class="ln">L73</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 _endGame() 调用</div>
+          <div class="card-action"><code>Auth.getCurrentUser()</code></div>
+          <div class="card-code">function getCurrentUser() {
+    return DataStore.getCurrentUser()  // → data.js L57
+    // → localStorage.getItem('snake_current')
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DataStore.saveGameRecord -->
+    <div class="step data">
+      <div class="step-source"><span class="file-pill data">js/data.js</span><span class="ln">L86</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">被 _endGame() 调用，持久化本局成绩</div>
+          <div class="card-action"><code>DataStore.saveGameRecord(user, score, duration)</code></div>
+          <div class="card-code">function saveGameRecord(username, score, duration) {
+    const records = _get(KEYS.GAME_RECORDS) || {}   // localStorage: 'snake_records'
+    if (!records[username]) records[username] = []
+    records[username].push({
+        score,
+        duration,                              // 本局用时（秒）
+        date:      Date.now(),
+        formatted: new Date().toLocaleString('zh-CN'),
+    })
+    _set(KEYS.GAME_RECORDS, records)           // 写回 localStorage
+}</div>
+          <div class="card-note">此数据会在用户切换到「排行榜」视图时，由 app.js 调用 <code>DataStore.getLeaderboard()</code> 和 <code>DataStore.getUserRecords()</code> 读取并渲染。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- onGameOver callback -->
+    <div class="step app">
+      <div class="step-source"><span class="file-pill app">js/app.js</span><span class="ln">L140</span></div>
+      <div class="step-line">
+        <div class="step-card">
+          <div class="card-trigger">_endGame() 最后调用 <code>onGameOver(score, duration)</code></div>
+          <div class="card-action">回调函数执行（由 _enterGame() 传入）</div>
+          <div class="card-code">// 此回调在 _enterGame() 时注册（app.js L140）
+onGameOver: (s, d) => {
+    btnStart.textContent = '🔄 再来一局'   // 更新按钮文字
+}</div>
+          <div class="card-note" style="color:var(--c-game)">✓ 游戏结束完整流程结束。用户现在看到 canvas 上的「游戏结束」遮罩，并可点击「🔄 再来一局」或按空格键重新开始（触发 SnakeGame.start()，回到流程 3）。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  贪吃蛇项目 · HTML → app.js → game.js / auth.js → data.js 全链路流程分析 · 2026-05-12
+</footer>
+
+</body>
+</html>

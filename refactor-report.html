@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>贪吃蛇 — 现代 JS 重构报告</title>
+<style>
+:root {
+  --bg:      #080b14;
+  --panel:   #0d1020;
+  --card:    #111525;
+  --border:  #1e2438;
+  --del:     #3a1a1a;
+  --del-txt: #f87171;
+  --add:     #0e2a1a;
+  --add-txt: #4ade80;
+  --neu:     #111828;
+  --neu-txt: #94a3b8;
+  --c-blue:  #4f9cf9;
+  --c-green: #4ade80;
+  --c-red:   #f87171;
+  --c-yellow:#fbbf24;
+  --c-purple:#a78bfa;
+  --c-orange:#fb923c;
+  --text:    #dde3f0;
+  --dim:     #7a88a8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
+/* ===== HEADER ===== */
+.page-title { font-size: 1.7rem; font-weight: 700; margin-bottom: 0.2rem; }
+.page-sub   { color: var(--dim); font-size: 0.9rem; margin-bottom: 2.5rem; }
+
+/* ===== SUMMARY STATS ===== */
+.stats-row {
+  display: flex; flex-wrap: wrap; gap: 0.8rem;
+  margin-bottom: 3rem;
+}
+.stat-box {
+  flex: 1; min-width: 130px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  text-align: center;
+}
+.stat-box .sv { font-size: 1.8rem; font-weight: 800; }
+.stat-box .sl { font-size: 0.72rem; color: var(--dim); margin-top: 0.15rem; }
+.stat-box.green .sv { color: var(--c-green); }
+.stat-box.red   .sv { color: var(--c-red); }
+.stat-box.blue  .sv { color: var(--c-blue); }
+.stat-box.yellow .sv { color: var(--c-yellow); }
+.stat-box.purple .sv { color: var(--c-purple); }
+
+/* ===== SECTION ===== */
+.section { margin-bottom: 3.5rem; }
+.section-head {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-head h2 { font-size: 1.05rem; font-weight: 700; }
+.tag {
+  font-size: 0.68rem; font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+.tag-green  { background: #0e2a1a; color: var(--c-green); }
+.tag-red    { background: #3a1a1a; color: var(--c-red); }
+.tag-blue   { background: #0e1f3a; color: var(--c-blue); }
+.tag-yellow { background: #2e2000; color: var(--c-yellow); }
+.tag-purple { background: #220a3a; color: var(--c-purple); }
+.tag-orange { background: #2e1800; color: var(--c-orange); }
+
+/* ===== CHANGE ITEMS ===== */
+.changes { display: flex; flex-direction: column; gap: 1.2rem; }
+.change-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.change-head {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+.change-head .ch-title { font-size: 0.88rem; font-weight: 700; }
+.change-head .ch-file  { font-size: 0.7rem; color: var(--dim);
+  background: #1a1e30; padding: 0.1rem 0.45rem; border-radius: 3px;
+  font-family: monospace; }
+.change-body { padding: 0.8rem 1rem; }
+.change-note { font-size: 0.8rem; color: var(--dim); margin-bottom: 0.7rem; line-height: 1.5; }
+.change-note strong { color: var(--text); }
+
+/* ===== DIFF BLOCK ===== */
+.diff {
+  border-radius: 7px;
+  overflow: hidden;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+}
+.diff-label {
+  display: flex; justify-content: space-between;
+  padding: 0.3rem 0.75rem;
+  background: #0a0c18;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem; color: var(--dim);
+}
+.diff-label span { font-weight: 600; }
+.diff-label .before { color: var(--c-red); }
+.diff-label .after  { color: var(--c-green); }
+.diff-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 700px) {
+  .diff-cols { grid-template-columns: 1fr; }
+}
+.diff-col { padding: 0.7rem 0.9rem; }
+.diff-col.before-col { background: var(--del); border-right: 1px solid var(--border); }
+.diff-col.after-col  { background: var(--add); }
+.diff-col pre { white-space: pre-wrap; word-break: break-all; line-height: 1.7; }
+.diff-col.before-col pre { color: #fca5a5; }
+.diff-col.after-col  pre { color: #86efac; }
+.diff-note {
+  background: var(--neu); padding: 0.5rem 0.9rem;
+  font-size: 0.72rem; color: var(--neu-txt); line-height: 1.5;
+  border-top: 1px solid var(--border);
+}
+
+/* ===== FILE SUMMARY TABLE ===== */
+.file-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.file-table th {
+  text-align: left; padding: 0.5rem 0.8rem;
+  color: var(--dim); font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+.file-table td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #141826; vertical-align: top; }
+.file-table tr:last-child td { border-bottom: none; }
+code {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  background: #0f1220;
+  padding: 0.1rem 0.38rem;
+  border-radius: 3px;
+}
+.pill {
+  display: inline-block; font-size: 0.65rem; font-weight: 700;
+  padding: 0.1rem 0.45rem; border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.pill-fix    { background: #3a1a1a; color: var(--c-red); }
+.pill-perf   { background: #0e2a1a; color: var(--c-green); }
+.pill-module { background: #0e1f3a; color: var(--c-blue); }
+.pill-syntax { background: #2e2000; color: var(--c-yellow); }
+.pill-class  { background: #220a3a; color: var(--c-purple); }
+
+/* ===== NOTICE BOX ===== */
+.notice {
+  background: #1a1500;
+  border: 1px solid #3a2a00;
+  border-left: 3px solid var(--c-yellow);
+  border-radius: 0 8px 8px 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  color: #d4b44a;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+.notice strong { color: var(--c-yellow); }
+
+hr.divider { border: none; border-top: 1px solid var(--border); margin: 0 0 3rem; }
+footer { text-align: center; color: var(--dim); font-size: 0.78rem;
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="page-title">🐍 贪吃蛇 — 现代 JS 重构报告</div>
+<p class="page-sub">按照 ES2022+ 技术规范重构全部 JS 文件，记录每项改动的前后对比与原因。</p>
+
+<div class="notice">
+  <strong>⚠️ 运行要求：</strong>重构后使用 ES Modules（<code>import/export</code>），浏览器出于安全限制不允许 <code>file://</code> 协议加载模块。
+  请通过本地服务器打开页面，例如 VS Code 的 <strong>Live Server</strong> 插件，或运行 <code>npx serve .</code>。
+</div>
+
+<!-- ===== 统计 ===== -->
+<div class="stats-row">
+  <div class="stat-box blue">  <div class="sv">5</div><div class="sl">改动文件</div></div>
+  <div class="stat-box green"> <div class="sv">8</div><div class="sl">改进项</div></div>
+  <div class="stat-box red">   <div class="sv">1</div><div class="sl">Bug 修复</div></div>
+  <div class="stat-box yellow"><div class="sv">1</div><div class="sl">性能提升</div></div>
+  <div class="stat-box purple"><div class="sv">−4</div><div class="sl">减少 &lt;script&gt; 标签</div></div>
+</div>
+
+<!-- ===== 改动总览 ===== -->
+<div class="section">
+  <div class="section-head"><h2>改动总览</h2></div>
+  <table class="file-table">
+    <thead><tr><th>文件</th><th>主要改动</th><th>类型</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>index.html</code></td>
+        <td>4 个 <code>&lt;script&gt;</code> → 1 个 <code>&lt;script type="module"&gt;</code></td>
+        <td><span class="pill pill-module">模块化</span></td>
+      </tr>
+      <tr>
+        <td><code>js/data.js</code></td>
+        <td>IIFE + 返回对象 → 具名 <code>export</code>；<code>??</code> 替换 <code>||</code>；<code>??=</code> 初始化；链式数组方法</td>
+        <td><span class="pill pill-module">模块化</span> <span class="pill pill-syntax">语法</span></td>
+      </tr>
+      <tr>
+        <td><code>js/auth.js</code></td>
+        <td>IIFE → <code>import/export</code>；<code>Math.imul</code> 替换位移哈希；<code>for...of</code> 字符串迭代</td>
+        <td><span class="pill pill-module">模块化</span> <span class="pill pill-syntax">语法</span></td>
+      </tr>
+      <tr>
+        <td><code>js/game.js</code></td>
+        <td>IIFE 闭包 → <code>class</code> + 私有字段 <code>#</code>；<code>setInterval</code> → <code>requestAnimationFrame</code>；逻辑与渲染解耦；键盘映射表；<code>#keysBound</code> 防重复绑定</td>
+        <td><span class="pill pill-class">类封装</span> <span class="pill pill-perf">性能</span> <span class="pill pill-fix">Bug修复</span></td>
+      </tr>
+      <tr>
+        <td><code>js/app.js</code></td>
+        <td>移除 IIFE + DOMContentLoaded；<code>import</code> 声明；事件委托修复 auth-toggle 内存泄漏；<code>map().join()</code> 替换 <code>innerHTML +=</code></td>
+        <td><span class="pill pill-module">模块化</span> <span class="pill pill-fix">Bug修复</span> <span class="pill pill-syntax">语法</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 1：ES Modules ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>① ES Modules 替代 IIFE 全局模式</h2>
+    <span class="tag tag-blue">模块化</span>
+  </div>
+  <div class="changes">
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">index.html — 脚本标签</span>
+        <span class="ch-file">index.html L137–140</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码依赖手动排序保证加载顺序（<code>data → auth → game → app</code>）。ES Module 的 <code>import</code> 声明由引擎自动解析依赖图，HTML 只需声明入口。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（4 个标签，顺序不能错）</span><span class="after">重构后（1 个入口）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>&lt;!-- 脚本加载顺序：依赖在前 --&gt;
+&lt;script src="js/data.js"&gt;&lt;/script&gt;
+&lt;script src="js/auth.js"&gt;&lt;/script&gt;
+&lt;script src="js/game.js"&gt;&lt;/script&gt;
+&lt;script src="js/app.js"&gt;&lt;/script&gt;</pre></div>
+            <div class="diff-col after-col"><pre>&lt;!-- ES Module：依赖由 import 自动解析 --&gt;
+&lt;script type="module" src="js/app.js"&gt;
+&lt;/script&gt;</pre></div>
+          </div>
+          <div class="diff-note">type="module" 脚本自动 defer（HTML 解析完才执行），故 app.js 中顶层代码可直接访问 DOM，无需 DOMContentLoaded 包裹。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">data.js — IIFE 全局对象 → 具名 export</span>
+        <span class="ch-file">js/data.js</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">IIFE 模式通过闭包隐藏内部变量，但<strong>仍然污染全局作用域</strong>（<code>window.DataStore</code>）。ES Module 文件天然隔离，只有 <code>export</code> 的内容才对外可见。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>const DataStore = (() => {
+  // 内部函数...
+
+  return {
+    getUsers, saveUser,
+    userExists, getUserPasswordHash,
+    setCurrentUser, getCurrentUser,
+    clearCurrentUser,
+    addLoginRecord, getLoginHistory,
+    saveGameRecord, getUserRecords,
+    getLeaderboard,
+  };
+})();
+// → window.DataStore 被污染</pre></div>
+            <div class="diff-col after-col"><pre>// 每个函数直接 export
+export function getUsers() { ... }
+export function saveUser(...) { ... }
+export function userExists(...) { ... }
+// ...
+// 不产生任何全局变量</pre></div>
+          </div>
+          <div class="diff-note">auth.js 和 app.js 通过 import { ... } from './data.js' 按需引入，打包工具可对未使用的函数做 tree-shaking。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">app.js — 移除 DOMContentLoaded 包裹</span>
+        <span class="ch-file">js/app.js L5</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码需要 DOMContentLoaded 是因为普通 <code>&lt;script&gt;</code> 在 HTML 解析中途执行，此时 DOM 节点尚未就绪。<strong>Module 脚本默认 defer</strong>，HTML 解析完才执行，顶层代码可直接读取 DOM。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（271 行，全部嵌套一层）</span><span class="after">重构后（无包裹，顶层直接运行）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>document.addEventListener(
+  'DOMContentLoaded',
+  () => {
+    // 所有代码都在这里...
+    // 嵌套一层，增加缩进
+  }
+);</pre></div>
+            <div class="diff-col after-col"><pre>import * as Auth from './auth.js';
+import * as DataStore from './data.js';
+import game from './game.js';
+
+// 顶层直接写，无额外嵌套
+const navbar = document.getElementById('navbar');
+// ...</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 2：Class 私有字段 ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>② Class + 私有字段 <code>#</code> 替代 IIFE 闭包</h2>
+    <span class="tag tag-purple">类封装</span>
+  </div>
+  <div class="changes">
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">game.js — 闭包变量 → Class 私有字段</span>
+        <span class="ch-file">js/game.js</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码用 IIFE 闭包模拟私有状态，但这是一种约定，没有语言级强制。<strong>ES2022 私有字段 <code>#</code></strong> 是真正的语言级私有——外部访问会抛 <code>SyntaxError</code>，不是约定而是规范。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（IIFE 闭包变量）</span><span class="after">重构后（Class 私有字段）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>const SnakeGame = (() => {
+  // 闭包变量（外部无法访问，
+  // 但没有语言强制）
+  let canvas, ctx;
+  let snake, food, direction;
+  let score, gameOver, paused;
+  let running, difficulty;
+  let interval = null;
+  let onScoreUpdate = null;
+  let onGameOver = null;
+  // ...
+
+  function init(canvasId, cb) { ... }
+  function start() { ... }
+
+  return { init, start, pause,
+           stop, setDifficulty,
+           startDemo, stopDemo };
+})();</pre></div>
+            <div class="diff-col after-col"><pre>class SnakeGame {
+  // 私有字段（语言级强制，
+  // 外部访问抛 SyntaxError）
+  #canvas    = null;
+  #ctx       = null;
+  #snake     = [];
+  #food      = null;
+  #direction = DIR.RIGHT;
+  #score     = 0;
+  #gameOver  = false;
+  #running   = false;
+  #onScoreUpdate = null;
+  #onGameOver    = null;
+  // ...
+
+  init(canvasId, cb) { ... }
+  start() { ... }
+
+  #advanceLogic() { ... }  // 私有方法
+  #render() { ... }        // 私有方法
+}
+
+export default new SnakeGame();</pre></div>
+          </div>
+          <div class="diff-note">export default new SnakeGame() 导出单例，app.js 用 import game from './game.js' 引入，调用方式与之前完全一致（game.start() 等）。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 3：rAF 替代 setInterval ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>③ requestAnimationFrame 替代 setInterval</h2>
+    <span class="tag tag-green">性能提升</span>
+  </div>
+  <div class="changes">
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">game.js — 游戏主循环</span>
+        <span class="ch-file">js/game.js #scheduleTick</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">
+          <strong>setInterval 的问题：</strong>固定毫秒间隔，与显示器刷新率无关，可能在两次屏幕刷新之间触发多次（渲染浪费）或完全错开屏幕刷新（画面撕裂）。标签页不可见时仍然执行（浪费 CPU）。<br>
+          <strong>requestAnimationFrame 的优势：</strong>与屏幕刷新率同步（通常 60fps = 16.67ms/帧）；标签页不可见时自动暂停；由浏览器在最优时机调用渲染。<br>
+          游戏逻辑（蛇移动）仍按难度控制频率，通过<strong>时间戳节流</strong>实现；渲染每帧都执行，粒子动画因此更流畅。
+        </p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（setInterval，逻辑与渲染耦合）</span><span class="after">重构后（rAF + 时间戳节流，逻辑与渲染解耦）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>// 启动：每 100ms tick 一次
+interval = setInterval(
+  _tick,
+  SPEED[difficulty]
+);
+
+function _tick() {
+  if (paused || gameOver) return;
+  // 1. 推进逻辑
+  direction = nextDirection;
+  // ... 碰撞检测、移动 ...
+  // 2. 渲染（与逻辑在同一函数）
+  _render();
+}
+
+// 停止
+clearInterval(interval);</pre></div>
+            <div class="diff-col after-col"><pre>// 启动：rAF 驱动，时间戳控制频率
+#scheduleTick() {
+  const tickMs = SPEED[this.#difficulty];
+  const frame = (now) => {
+    if (!this.#running) return;
+    // 逻辑：按难度频率推进
+    if (now - this.#lastTick >= tickMs) {
+      this.#advanceLogic();
+      this.#lastTick = now;
+    }
+    // 渲染：每帧都执行（60fps）
+    this.#render();
+    this.#rafId = requestAnimationFrame(frame);
+  };
+  this.#rafId = requestAnimationFrame(frame);
+}
+
+// 停止
+cancelAnimationFrame(this.#rafId);</pre></div>
+          </div>
+          <div class="diff-note">#advanceLogic() 和 #render() 完全解耦：逻辑按游戏速度推进，渲染每帧执行——吃食物时的粒子特效在 60fps 下更平滑，而蛇的移动速度不受影响。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 4：Bug 修复 ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>④ Bug 修复：auth-toggle 事件监听器内存泄漏</h2>
+    <span class="tag tag-red">Bug 修复</span>
+  </div>
+  <div class="changes">
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">app.js — 登录/注册切换按钮的事件绑定</span>
+        <span class="ch-file">js/app.js L62–93（原）→ L63–69（重构后）</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">
+          原代码每次切换登录/注册模式时，都会<strong>重新 innerHTML 整个 authSwitch，再重新 addEventListener</strong>。
+          旧的监听器没有被移除，每切换一次就多一个监听器——切换 N 次后有 N 个监听器同时响应，导致状态混乱和内存泄漏。
+          <strong>事件委托</strong>用一个永久监听器监听父元素，通过 <code>e.target.id</code> 判断点击目标，完全避免重复绑定。
+        </p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（每次切换都重新绑定，内存泄漏）</span><span class="after">重构后（事件委托，一个永久监听器）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>// 每次点击都执行：
+authToggle.addEventListener('click', () => {
+  isLoginMode = !isLoginMode;
+  // 重写 innerHTML（销毁旧节点）
+  authSwitch.innerHTML =
+    '还没有账号？&lt;a id="auth-toggle"&gt;...&lt;/a&gt;';
+  // 又绑定一次（旧监听器已泄漏）
+  document.getElementById('auth-toggle')
+    .addEventListener('click', () => { ... });
+  _rebindToggle(); // 再绑一次...
+});
+
+function _rebindToggle() {
+  const newToggle =
+    document.getElementById('auth-toggle');
+  newToggle.addEventListener('click', () => {
+    // 第 N 次切换时这里有 N 个监听器！
+  });
+}</pre></div>
+            <div class="diff-col after-col"><pre>// 只绑定一次，永远不需要重绑
+authSwitch.addEventListener('click', (e) => {
+  // 事件委托：检查实际点击的元素
+  if (e.target.id !== 'auth-toggle') return;
+
+  isLoginMode = !isLoginMode;
+  authMsg.textContent = '';
+  authMsg.className = 'auth-msg';
+  updateAuthUI(); // 只更新 UI 文字
+});
+
+function updateAuthUI() {
+  authSubmitBtn.textContent =
+    isLoginMode ? '登 录' : '注 册';
+  authSubtitle.textContent =
+    isLoginMode ? '登录后开始游戏' : '创建账号';
+  authSwitch.innerHTML = isLoginMode
+    ? '还没有账号？&lt;a id="auth-toggle"&gt;注册&lt;/a&gt;'
+    : '已有账号？&lt;a id="auth-toggle"&gt;登录&lt;/a&gt;';
+  // 不需要重绑事件，父元素监听器仍有效
+}</pre></div>
+          </div>
+          <div class="diff-note">innerHTML 替换子节点后，子节点上的监听器随节点一起销毁。但父元素 authSwitch 的监听器仍然存在，通过 e.target 判断点击目标，所以永远不需要重新绑定。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">game.js — 键盘监听器重复绑定</span>
+        <span class="ch-file">js/game.js #bindKeys</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码 <code>_bindKeys()</code> 在每次 <code>init()</code> 时都执行，而 <code>init()</code> 被调用两次（演示初始化 + 登录后初始化），导致 document 上有<strong>两个 keydown 监听器</strong>同时响应。新增 <code>#keysBound</code> 标志位，确保只绑定一次。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（init() 调用几次就绑几次）</span><span class="after">重构后（#keysBound 保证只绑一次）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>function init(canvasId, callbacks) {
+  // ...
+  _bindKeys(); // 每次 init 都执行
+}
+
+function _bindKeys() {
+  // 没有保护，重复添加
+  document.addEventListener('keydown', handler);
+}</pre></div>
+            <div class="diff-col after-col"><pre>#keysBound = false; // 私有字段
+
+#bindKeys() {
+  if (this.#keysBound) return; // 保护
+  this.#keysBound = true;
+  document.addEventListener('keydown',
+    (e) => { ... }
+  );
+}</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 5：现代语法 ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>⑤ 现代语法改进</h2>
+    <span class="tag tag-yellow">ES2020+ 语法</span>
+  </div>
+  <div class="changes">
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">空值合并 <code>??</code> 替代 <code>||</code></span>
+        <span class="ch-file">js/data.js</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note"><code>||</code> 对所有假值（<code>0</code>、<code>''</code>、<code>false</code>）都会取右值，<code>??</code> 只在左值为 <code>null</code> 或 <code>undefined</code> 时才取右值，语义更精确。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>return _get(KEYS.USERS) || {};
+
+return _get(KEYS.LOGIN_HISTORY) || {};
+
+return (records[username] || [])
+  .sort(...);</pre></div>
+            <div class="diff-col after-col"><pre>return _get(KEYS.USERS) ?? {};
+
+return _get(KEYS.LOGIN_HISTORY) ?? {};
+
+return (records[username] ?? [])
+  .sort(...);</pre></div>
+          </div>
+          <div class="diff-note">若某用户分数恰好是 0，|| 会错误地将 0 视为假值而取默认值；?? 不会有此问题。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">逻辑赋值 <code>??=</code> 简化初始化</span>
+        <span class="ch-file">js/data.js addLoginRecord / saveGameRecord</span>
+      </div>
+      <div class="change-body">
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>if (!history[username])
+  history[username] = [];</pre></div>
+            <div class="diff-col after-col"><pre>history[username] ??= [];</pre></div>
+          </div>
+          <div class="diff-note">??= 等价于 x ?? (x = value)，仅在 x 为 null/undefined 时赋值。比 if (!x) 更准确（不会误覆盖空数组 []）。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">可选链 <code>?.</code> 简化空值判断</span>
+        <span class="ch-file">js/data.js / js/game.js</span>
+      </div>
+      <div class="change-body">
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>// data.js
+const user = getUsers()[username];
+return user ? user.passwordHash : null;
+
+// game.js
+if (onScoreUpdate)
+  onScoreUpdate(score);
+if (onGameOver)
+  onGameOver(score, duration);</pre></div>
+            <div class="diff-col after-col"><pre>// data.js
+return getUsers()[username]
+  ?.passwordHash ?? null;
+
+// game.js
+this.#onScoreUpdate?.(this.#score);
+this.#onGameOver?.(this.#score, duration);</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">键盘映射表替代 <code>switch</code></span>
+        <span class="ch-file">js/game.js #bindKeys</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">switch 语句每次执行都要依次比较，且容易遗漏 break。用对象字面量做查找表，O(1) 直接访问，可读性更高。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（switch，8 个 case）</span><span class="after">重构后（查找表，1 次属性访问）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>switch (e.key) {
+  case 'ArrowUp': case 'w': case 'W':
+    if (dir !== DIR.DOWN)
+      nextDirection = DIR.UP;
+    e.preventDefault(); break;
+  case 'ArrowDown': case 's': case 'S':
+    if (dir !== DIR.UP)
+      nextDirection = DIR.DOWN;
+    e.preventDefault(); break;
+  // ... 还有 Left / Right
+}</pre></div>
+            <div class="diff-col after-col"><pre>const KEY_DIR = Object.freeze({
+  ArrowUp: DIR.UP,
+  w: DIR.UP,    W: DIR.UP,
+  ArrowDown: DIR.DOWN,
+  s: DIR.DOWN,  S: DIR.DOWN,
+  ArrowLeft: DIR.LEFT,
+  a: DIR.LEFT,  A: DIR.LEFT,
+  ArrowRight: DIR.RIGHT,
+  d: DIR.RIGHT, D: DIR.RIGHT,
+});
+
+const next = KEY_DIR[e.key]; // O(1)
+if (next) { ... }</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title"><code>Array.some()</code> 替代 for 循环碰撞检测</span>
+        <span class="ch-file">js/game.js #advanceLogic / #demoAI</span>
+      </div>
+      <div class="change-body">
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>let hitSelf = false;
+for (const seg of snake) {
+  if (seg.x === head.x
+      && seg.y === head.y) {
+    hitSelf = true;
+    break;
+  }
+}
+if (hitSelf) return _endGame();</pre></div>
+            <div class="diff-col after-col"><pre>if (this.#snake.some(
+  s => s.x === head.x
+    && s.y === head.y
+)) {
+  this.#endGame(); return;
+}</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title"><code>map().join('')</code> 替代 <code>innerHTML +=</code></span>
+        <span class="ch-file">js/app.js renderLeaderboard</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note"><code>innerHTML +=</code> 每次都序列化整个 DOM 树、拼接字符串、再重新解析整个树，触发多次回流。<code>map().join('')</code> 只做一次字符串拼接，赋值给 innerHTML 只触发一次解析。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（每行都触发一次 DOM 解析）</span><span class="after">重构后（一次性赋值）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>board.forEach((r, i) => {
+  // += 每次都序列化+拼接+反序列化
+  tbodyGlobal.innerHTML += `
+    &lt;tr&gt;
+      &lt;td&gt;${i + 1}&lt;/td&gt;
+      ...
+    &lt;/tr&gt;`;
+});</pre></div>
+            <div class="diff-col after-col"><pre>// 先在 JS 中拼好完整字符串
+// 最后一次性赋值，只解析一次
+document.getElementById('tbody-global')
+  .innerHTML = board.map((r, i) => `
+  &lt;tr&gt;
+    &lt;td&gt;${i + 1}&lt;/td&gt;
+    ...
+  &lt;/tr&gt;`).join('');</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title"><code>Math.imul</code> 替代手写整数乘法</span>
+        <span class="ch-file">js/auth.js _hashPassword</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码用 <code>(hash &lt;&lt; 5) - hash</code> 模拟 <code>hash * 31</code>，再用 <code>hash = hash &amp; hash</code> 强制转 32 位整数，意图正确但写法晦涩。<code>Math.imul(31, hash)</code> 是标准的 32 位整数乘法，语义清晰。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前</span><span class="after">重构后</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>for (let i = 0; i &lt; password.length; i++) {
+  const char = password.charCodeAt(i);
+  hash = ((hash &lt;&lt; 5) - hash) + char;
+  hash = hash &amp; hash; // 转 32 位整数
+}</pre></div>
+            <div class="diff-col after-col"><pre>for (const char of password) {
+  hash = Math.imul(31, hash)
+       + char.charCodeAt(0) | 0;
+  // Math.imul 原生 32 位整数乘法
+  // for...of 直接迭代字符，更语义化
+}</pre></div>
+          </div>
+          <div class="diff-note">| 0 与原来的 & hash 效果相同（截断为 32 位有符号整数），但写法更标准。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">链式数组方法替代命令式 for 循环（getLeaderboard）</span>
+        <span class="ch-file">js/data.js getLeaderboard</span>
+      </div>
+      <div class="change-body">
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（命令式）</span><span class="after">重构后（声明式）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>const board = [];
+for (const [user, list]
+     of Object.entries(records)) {
+  if (list.length === 0) continue;
+  const best = list.reduce(
+    (a, b) => a.score >= b.score ? a : b
+  );
+  board.push({
+    username: user,
+    score: best.score,
+    date: best.formatted,
+  });
+}
+return board.sort(
+  (a, b) => b.score - a.score
+);</pre></div>
+            <div class="diff-col after-col"><pre>return Object.entries(records)
+  .filter(([, list]) => list.length > 0)
+  .map(([username, list]) => {
+    const best = list.reduce(
+      (a, b) => a.score >= b.score ? a : b
+    );
+    return {
+      username,
+      score: best.score,
+      date: best.formatted,
+    };
+  })
+  .sort((a, b) => b.score - a.score);</pre></div>
+          </div>
+          <div class="diff-note">[, list] 解构跳过第一个元素（用户名在这里不需要），{ username } 属性简写（key 与变量同名时省略冒号和值）。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 改动 6：Object.freeze ===== -->
+<div class="section">
+  <div class="section-head">
+    <h2>⑥ <code>Object.freeze</code> 保护常量</h2>
+    <span class="tag tag-orange">防御性编程</span>
+  </div>
+  <div class="changes">
+    <div class="change-item">
+      <div class="change-head">
+        <span class="ch-title">game.js / data.js — 常量对象冻结</span>
+      </div>
+      <div class="change-body">
+        <p class="change-note">原代码的 <code>DIR</code>、<code>SPEED</code>、<code>FOOD_ICONS</code>、<code>KEYS</code> 等常量对象，虽然用 <code>const</code> 声明，但对象内部的属性仍可被修改（<code>const</code> 只保护引用，不保护内容）。<code>Object.freeze()</code> 让对象深度不可变，任何修改都被静默忽略（严格模式下抛错）。</p>
+        <div class="diff">
+          <div class="diff-label"><span class="before">重构前（const 不保护属性）</span><span class="after">重构后（freeze 保护内容）</span></div>
+          <div class="diff-cols">
+            <div class="diff-col before-col"><pre>const DIR = {
+  UP:    { x: 0, y: -1 },
+  DOWN:  { x: 0, y:  1 },
+  // ...
+};
+// DIR.UP = null; ← 不报错！</pre></div>
+            <div class="diff-col after-col"><pre>const DIR = Object.freeze({
+  UP:    { x: 0, y: -1 },
+  DOWN:  { x: 0, y:  1 },
+  // ...
+});
+// DIR.UP = null; ← 严格模式抛 TypeError</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>贪吃蛇项目 ES2022+ 重构报告 · 5 个文件 · 8 项改进 · 1 个 Bug 修复 · 1 项性能提升 · 2026-05-12</footer>
+
+</body>
+</html>

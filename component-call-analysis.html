@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>贪吃蛇项目 — 组件调用分析报告</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2a2d3e;
+      --accent-blue: #4f9cf9;
+      --accent-green: #4ade80;
+      --accent-yellow: #fbbf24;
+      --accent-purple: #a78bfa;
+      --accent-red: #f87171;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --tag-bg: #1e2235;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--text-dim); margin-bottom: 2.5rem; font-size: 0.95rem; }
+
+    /* ===== 模块总览卡片 ===== */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    .module-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem;
+    }
+    .module-card .file-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+    .module-card .module-name {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .module-card .module-desc {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+    }
+    .module-card.app   { border-left: 3px solid var(--accent-blue); }
+    .module-card.game  { border-left: 3px solid var(--accent-green); }
+    .module-card.auth  { border-left: 3px solid var(--accent-yellow); }
+    .module-card.data  { border-left: 3px solid var(--accent-purple); }
+    .module-card.html  { border-left: 3px solid var(--accent-red); }
+
+    /* ===== 调用表格区块 ===== */
+    .section { margin-bottom: 3rem; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-header h2 { font-size: 1.15rem; }
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-blue   { background: #1e3a5f; color: var(--accent-blue); }
+    .badge-green  { background: #14352a; color: var(--accent-green); }
+    .badge-yellow { background: #3a2e10; color: var(--accent-yellow); }
+    .badge-purple { background: #2a1f4a; color: var(--accent-purple); }
+    .badge-red    { background: #3a1a1a; color: var(--accent-red); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead tr { background: #14172080; }
+    th {
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.65rem 0.9rem;
+      border-bottom: 1px solid #1e2130;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1c2030; }
+
+    code {
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      background: var(--tag-bg);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+    .file-link {
+      display: inline-block;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.15rem;
+    }
+    .call-site {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 0.2rem;
+    }
+    .line-no {
+      display: inline-block;
+      background: #22253a;
+      color: #7a87b0;
+      font-size: 0.72rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    .desc-text { color: var(--text-dim); font-size: 0.83rem; }
+
+    /* 依赖关系图 */
+    .dep-section { margin-bottom: 3rem; }
+    .dep-section h2 { font-size: 1.15rem; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+    .dep-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .dep-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .dep-card h3 { font-size: 0.9rem; margin-bottom: 0.6rem; }
+    .dep-card ul { list-style: none; }
+    .dep-card li {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      padding: 0.2rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dep-card li::before { content: '→'; color: #4a5270; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🐍 贪吃蛇项目 — 组件调用分析报告</h1>
+<p class="subtitle">逐一分析各文件中对外部组件（模块/函数）的调用关系，标注被调用组件所在文件与名称。</p>
+
+<!-- ===== 模块总览 ===== -->
+<div class="overview-grid">
+  <div class="module-card html">
+    <div class="file-label">index.html</div>
+    <div class="module-name">HTML 入口</div>
+    <div class="module-desc">页面结构 + 脚本加载顺序</div>
+  </div>
+  <div class="module-card data">
+    <div class="file-label">js/data.js</div>
+    <div class="module-name">DataStore</div>
+    <div class="module-desc">localStorage 数据存取层</div>
+  </div>
+  <div class="module-card auth">
+    <div class="file-label">js/auth.js</div>
+    <div class="module-name">Auth</div>
+    <div class="module-desc">注册 / 登录 / 登出认证</div>
+  </div>
+  <div class="module-card game">
+    <div class="file-label">js/game.js</div>
+    <div class="module-name">SnakeGame</div>
+    <div class="module-desc">贪吃蛇核心游戏逻辑</div>
+  </div>
+  <div class="module-card app">
+    <div class="file-label">js/app.js</div>
+    <div class="module-name">App（入口）</div>
+    <div class="module-desc">视图路由 + 事件绑定</div>
+  </div>
+</div>
+
+<!-- ===== index.html ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>index.html — 脚本加载与 DOM 结构</h2>
+    <span class="badge badge-red">HTML 入口</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>代码位置</th>
+        <th>调用内容</th>
+        <th>被调用组件</th>
+        <th>所在文件</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L137</span></td>
+        <td><code>&lt;script src="js/data.js"&gt;</code></td>
+        <td><code>DataStore</code></td>
+        <td><span class="file-link">js/data.js</span></td>
+        <td class="desc-text">最先加载，其他模块依赖它</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L138</span></td>
+        <td><code>&lt;script src="js/auth.js"&gt;</code></td>
+        <td><code>Auth</code></td>
+        <td><span class="file-link">js/auth.js</span></td>
+        <td class="desc-text">依赖 DataStore，须在其后加载</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L139</span></td>
+        <td><code>&lt;script src="js/game.js"&gt;</code></td>
+        <td><code>SnakeGame</code></td>
+        <td><span class="file-link">js/game.js</span></td>
+        <td class="desc-text">依赖 Auth / DataStore，第三个加载</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L140</span></td>
+        <td><code>&lt;script src="js/app.js"&gt;</code></td>
+        <td><code>App（匿名）</code></td>
+        <td><span class="file-link">js/app.js</span></td>
+        <td class="desc-text">最后加载，所有模块均已就绪后执行</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L9</span></td>
+        <td><code>&lt;link href="css/style.css"&gt;</code></td>
+        <td>样式表</td>
+        <td><span class="file-link">css/style.css</span></td>
+        <td class="desc-text">全局 UI 样式</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== app.js → SnakeGame ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>app.js → SnakeGame（game.js）</h2>
+    <span class="badge badge-green">SnakeGame</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>调用位置（app.js）</th>
+        <th>调用语句</th>
+        <th>被调用函数</th>
+        <th>所在文件 / 对象</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L43</span></td>
+        <td><code>SnakeGame.init('game-canvas', {})</code></td>
+        <td><code>init(canvasId, callbacks)</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">auth 视图展示时初始化演示用 Canvas</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L44</span></td>
+        <td><code>SnakeGame.startDemo('game-canvas')</code></td>
+        <td><code>startDemo(canvasId)</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">登录页背景：AI 自动演示蛇，5 秒循环</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L48</span></td>
+        <td><code>SnakeGame.stopDemo()</code></td>
+        <td><code>stopDemo()</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">切换到游戏视图时停止演示动画</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L136</span></td>
+        <td><code>SnakeGame.stopDemo()</code></td>
+        <td><code>stopDemo()</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">登录成功进入游戏前，再次确保停止演示</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L138–143</span></td>
+        <td><code>SnakeGame.init('game-canvas', { onScoreUpdate, onGameOver })</code></td>
+        <td><code>init(canvasId, callbacks)</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">正式游戏初始化，注入分数更新和游戏结束回调</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L155</span></td>
+        <td><code>SnakeGame.start()</code></td>
+        <td><code>start()</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">点击「开始游戏」按钮时触发</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L161</span></td>
+        <td><code>SnakeGame.pause()</code></td>
+        <td><code>pause()</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">点击「暂停」按钮，返回 boolean 表示当前暂停状态</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L170</span></td>
+        <td><code>SnakeGame.setDifficulty(diff)</code></td>
+        <td><code>setDifficulty(diff)</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">点击难度按钮（easy/normal/hard）时更新速度</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L177</span></td>
+        <td><code>SnakeGame.stop()</code></td>
+        <td><code>stop()</code></td>
+        <td>js/game.js · <code>SnakeGame</code></td>
+        <td class="desc-text">用户登出时清理游戏循环</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== app.js → Auth ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>app.js → Auth（auth.js）</h2>
+    <span class="badge badge-yellow">Auth</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>调用位置（app.js）</th>
+        <th>调用语句</th>
+        <th>被调用函数</th>
+        <th>所在文件 / 对象</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L114</span></td>
+        <td><code>Auth.login(username, password)</code></td>
+        <td><code>login(username, password)</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">表单提交（登录模式）时调用</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L116</span></td>
+        <td><code>Auth.register(username, password)</code></td>
+        <td><code>register(username, password)</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">表单提交（注册模式）时调用</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L119</span></td>
+        <td><code>Auth.login(username, password)</code></td>
+        <td><code>login(username, password)</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">注册成功后自动登录</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L133</span></td>
+        <td><code>Auth.getCurrentUser()</code></td>
+        <td><code>getCurrentUser()</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">登录成功后获取用户名显示在导航栏</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L176</span></td>
+        <td><code>Auth.logout()</code></td>
+        <td><code>logout()</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">点击「退出登录」按钮时调用</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L190</span></td>
+        <td><code>Auth.getCurrentUser()</code></td>
+        <td><code>getCurrentUser()</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">刷新排行榜时获取当前用户名</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L266</span></td>
+        <td><code>Auth.isLoggedIn()</code></td>
+        <td><code>isLoggedIn()</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">页面初始化时判断是否已登录，决定跳转视图</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== app.js → DataStore ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>app.js → DataStore（data.js）</h2>
+    <span class="badge badge-purple">DataStore</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>调用位置（app.js）</th>
+        <th>调用语句</th>
+        <th>被调用函数</th>
+        <th>所在文件 / 对象</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L193</span></td>
+        <td><code>DataStore.getLeaderboard()</code></td>
+        <td><code>getLeaderboard()</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">获取全局排行榜数据（每人最高分降序）</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L216</span></td>
+        <td><code>DataStore.getUserRecords(user)</code></td>
+        <td><code>getUserRecords(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">获取当前用户所有游戏记录</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L238</span></td>
+        <td><code>DataStore.getLoginHistory(user)</code></td>
+        <td><code>getLoginHistory(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">获取当前用户登录时间历史</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== auth.js → DataStore ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>auth.js → DataStore（data.js）</h2>
+    <span class="badge badge-yellow">Auth</span>
+    <span style="color:#4a5270">调用</span>
+    <span class="badge badge-purple">DataStore</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>调用位置（auth.js）</th>
+        <th>调用语句</th>
+        <th>被调用函数</th>
+        <th>所在文件 / 对象</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L35</span></td>
+        <td><code>DataStore.userExists(username)</code></td>
+        <td><code>userExists(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">注册时检查用户名是否已存在</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L39</span></td>
+        <td><code>DataStore.saveUser(username, hash)</code></td>
+        <td><code>saveUser(username, passwordHash)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">注册通过后持久化用户信息</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L53</span></td>
+        <td><code>DataStore.getUserPasswordHash(username)</code></td>
+        <td><code>getUserPasswordHash(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">登录时取出已存储的密码哈希用于验证</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L62</span></td>
+        <td><code>DataStore.setCurrentUser(username)</code></td>
+        <td><code>setCurrentUser(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">登录成功后写入当前会话用户名</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L63</span></td>
+        <td><code>DataStore.addLoginRecord(username)</code></td>
+        <td><code>addLoginRecord(username)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">记录本次登录时间（用于登录历史）</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L69</span></td>
+        <td><code>DataStore.clearCurrentUser()</code></td>
+        <td><code>clearCurrentUser()</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">登出时清除 localStorage 会话</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L74</span></td>
+        <td><code>DataStore.getCurrentUser()</code></td>
+        <td><code>getCurrentUser()</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text"><code>getCurrentUser()</code> 和 <code>isLoggedIn()</code> 的底层实现均委托此函数</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== game.js → Auth / DataStore ===== -->
+<div class="section">
+  <div class="section-header">
+    <h2>game.js → Auth（auth.js）&amp; DataStore（data.js）</h2>
+    <span class="badge badge-green">SnakeGame</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>调用位置（game.js）</th>
+        <th>调用语句</th>
+        <th>被调用函数</th>
+        <th>所在文件 / 对象</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="line-no">L265</span></td>
+        <td><code>Auth.getCurrentUser()</code></td>
+        <td><code>getCurrentUser()</code></td>
+        <td>js/auth.js · <code>Auth</code></td>
+        <td class="desc-text">游戏结束时，获取当前登录用户名以保存记录</td>
+      </tr>
+      <tr>
+        <td><span class="line-no">L267</span></td>
+        <td><code>DataStore.saveGameRecord(user, score, duration)</code></td>
+        <td><code>saveGameRecord(username, score, duration)</code></td>
+        <td>js/data.js · <code>DataStore</code></td>
+        <td class="desc-text">游戏结束后将本局分数和用时持久化到 localStorage</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== 依赖层级图 ===== -->
+<div class="dep-section">
+  <h2>依赖层级图</h2>
+  <div class="dep-grid">
+    <div class="dep-card">
+      <h3>🔵 js/app.js（最上层）</h3>
+      <ul>
+        <li><code>SnakeGame</code>（game.js）</li>
+        <li><code>Auth</code>（auth.js）</li>
+        <li><code>DataStore</code>（data.js）</li>
+      </ul>
+    </div>
+    <div class="dep-card">
+      <h3>🟢 js/game.js（中间层）</h3>
+      <ul>
+        <li><code>Auth</code>（auth.js）</li>
+        <li><code>DataStore</code>（data.js）</li>
+      </ul>
+    </div>
+    <div class="dep-card">
+      <h3>🟡 js/auth.js（中间层）</h3>
+      <ul>
+        <li><code>DataStore</code>（data.js）</li>
+      </ul>
+    </div>
+    <div class="dep-card">
+      <h3>🟣 js/data.js（底层）</h3>
+      <ul>
+        <li>仅依赖浏览器原生 <code>localStorage</code></li>
+        <li>不依赖其他模块</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<footer>
+  贪吃蛇项目组件调用分析报告 · 共 5 个文件 · 生成于 2026-05-12
+</footer>
+</body>
+</html>

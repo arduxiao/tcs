@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="网页版贪吃蛇游戏 — 注册登录、挑战高分、查看排行榜" />
+    <title>🐍 贪吃蛇 — Snake Game</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+    <div class="app-wrapper">
+
+        <!-- ========== 导航栏 ========== -->
+        <nav class="navbar" id="navbar">
+            <div class="logo">🐍 <span>贪吃蛇</span></div>
+            <ul class="nav-links">
+                <li><button class="nav-btn active" data-view="game" id="nav-game">🎮 游戏</button></li>
+                <li><button class="nav-btn" data-view="leaderboard" id="nav-leaderboard">🏆 排行榜</button></li>
+            </ul>
+            <div class="nav-user">
+                <span class="username" id="nav-username"></span>
+                <button class="btn-logout" id="btn-logout">退出登录</button>
+            </div>
+        </nav>
+
+        <!-- ========== 登录/注册浮层（覆盖在游戏视图上） ========== -->
+        <div class="auth-overlay" id="auth-overlay">
+            <div class="auth-card">
+                <h1>🐍 <span class="accent">贪吃蛇</span></h1>
+                <p class="subtitle" id="auth-subtitle">登录后开始游戏</p>
+
+                <form id="auth-form" autocomplete="off">
+                    <div class="form-group">
+                        <label for="input-username">用户名</label>
+                        <input type="text" id="input-username" placeholder="请输入用户名" maxlength="12" />
+                    </div>
+                    <div class="form-group">
+                        <label for="input-password">密码</label>
+                        <input type="password" id="input-password" placeholder="请输入密码" />
+                    </div>
+
+                    <div class="auth-msg" id="auth-msg"></div>
+
+                    <button type="submit" class="btn-primary" id="btn-auth-submit">登 录</button>
+                </form>
+
+                <p class="auth-switch" id="auth-switch">
+                    还没有账号？<a id="auth-toggle">立即注册</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- ========== 游戏视图（始终显示，登录浮层覆盖其上） ========== -->
+        <div class="view active" id="view-game">
+            <div class="game-header">
+                <div class="score-display">
+                    <div class="label">当前分数</div>
+                    <div class="value" id="score-value">0</div>
+                </div>
+
+                <div class="difficulty-selector">
+                    <button class="diff-btn" data-diff="easy">简单</button>
+                    <button class="diff-btn active" data-diff="normal">普通</button>
+                    <button class="diff-btn" data-diff="hard">困难</button>
+                </div>
+            </div>
+
+            <div class="game-canvas-wrapper">
+                <canvas id="game-canvas"></canvas>
+            </div>
+
+            <div class="game-controls">
+                <button class="btn-game start" id="btn-start">🎮 开始游戏</button>
+                <button class="btn-game pause" id="btn-pause">⏸ 暂停</button>
+            </div>
+        </div>
+
+        <!-- ========== 排行榜视图 ========== -->
+        <div class="view" id="view-leaderboard">
+            <h1 class="section-title">🏆 <span class="accent">排行榜</span></h1>
+
+            <!-- 全局排名 -->
+            <div class="board-card">
+                <h2><span class="icon">🌐</span> 全局最高分</h2>
+                <table class="data-table" id="table-global">
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>玩家</th>
+                            <th>最高分</th>
+                            <th>日期</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-global"></tbody>
+                </table>
+                <p class="empty-hint" id="hint-global" style="display:none;">暂无记录，快去游戏吧！</p>
+            </div>
+
+            <!-- 个人历史 -->
+            <div class="board-card">
+                <h2><span class="icon">📊</span> 我的游戏记录</h2>
+                <table class="data-table" id="table-personal">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>分数</th>
+                            <th>用时</th>
+                            <th>日期</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-personal"></tbody>
+                </table>
+                <p class="empty-hint" id="hint-personal" style="display:none;">还没有游戏记录</p>
+            </div>
+
+            <!-- 登录历史 -->
+            <div class="board-card login-history-section">
+                <h2><span class="icon">🕐</span> 登录历史</h2>
+                <table class="data-table" id="table-logins">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>登录时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-logins"></tbody>
+                </table>
+                <p class="empty-hint" id="hint-logins" style="display:none;">暂无登录记录</p>
+            </div>
+        </div>
+
+    </div><!-- /.app-wrapper -->
+
+    <!-- ES Module 入口：依赖由 import 声明自动解析，无需手动排序 -->
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
